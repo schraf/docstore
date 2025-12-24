@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	snapshotMagic = "DSS1"
+	magic = "DSS1"
 )
 
-type snapshotInfo struct {
+type header struct {
 	Magic     string    `json:"magic"`
 	Timestamp time.Time `json:"timestamp"`
 	DocType   string    `json:"doc_type"`
@@ -20,53 +20,59 @@ type snapshotInfo struct {
 }
 
 func (s *Store[T]) WriteTo(w io.Writer) (int64, error) {
-	hash, err := s.Hash()
-	if err != nil {
-		return 0, fmt.Errorf("unable to hash documents for snapshot: %w", err)
-	}
+	cw := &counter{Writer: w}
 
-	typeName := reflect.TypeFor[T]().String()
-
-	info := snapshotInfo{
-		Magic:     snapshotMagic,
-		Timestamp: time.Now().UTC(),
-		DocType:   typeName,
-		Hash:      hash,
-	}
-
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(info); err != nil {
-		return 0, fmt.Errorf("failed to encode and write snapshot info: %w", err)
-	}
-
-	// Write out each document
-	for _, doc := range s.documents {
-		if err := encoder.Encode(doc); err != nil {
-			return 0, fmt.Errorf("failed to encode document %s: %w", doc.Id, err)
+	err := func() error {
+		hash, err := s.Hash()
+		if err != nil {
+			return fmt.Errorf("unable to hash documents for snapshot: %w", err)
 		}
-	}
 
-	return 0, nil
+		typeName := reflect.TypeFor[T]().String()
+
+		encoder := json.NewEncoder(cw)
+		encoder.SetIndent("", "  ")
+
+		err = encoder.Encode(header{
+			Magic:     magic,
+			Timestamp: time.Now().UTC(),
+			DocType:   typeName,
+			Hash:      hash,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
+		}
+
+		// Write out each document
+		for _, doc := range s.documents {
+			if err := encoder.Encode(doc); err != nil {
+				return fmt.Errorf("failed to encode document %s: %w", doc.Id, err)
+			}
+		}
+		return nil
+	}()
+
+	return cw.written, err
 }
 
 func (s *Store[T]) ReadFrom(r io.Reader) (int64, error) {
+	cr := &counter{Reader: r}
+
 	typeName := reflect.TypeFor[T]().String()
-	decoder := json.NewDecoder(r)
+	decoder := json.NewDecoder(cr)
 
 	// Read out the snapshot info
-	info := snapshotInfo{}
-	if err := decoder.Decode(&info); err != nil {
-		return 0, fmt.Errorf("failed to decode snapshot info: %w", err)
+	header := header{}
+	if err := decoder.Decode(&header); err != nil {
+		return cr.read, fmt.Errorf("failed to read header: %w", err)
 	}
 
-	if info.Magic != snapshotMagic {
-		return 0, ErrInvalidSnapshotMagic
+	if header.Magic != magic {
+		return cr.read, fmt.Errorf("invalid file format")
 	}
 
-	if info.DocType != typeName {
-		return 0, ErrMismatchedDocType
+	if header.DocType != typeName {
+		return cr.read, fmt.Errorf("document type mismatch")
 	}
 
 	// Read out each document
@@ -74,11 +80,30 @@ func (s *Store[T]) ReadFrom(r io.Reader) (int64, error) {
 		var doc Document[T]
 
 		if err := decoder.Decode(&doc); err != nil {
-			return 0, fmt.Errorf("failed to decode document: %w", err)
+			return cr.read, fmt.Errorf("failed to decode document: %w", err)
 		}
 
 		s.documents[doc.Id] = doc
 	}
 
-	return 0, nil
+	return cr.read, nil
+}
+
+type counter struct {
+	io.Writer
+	io.Reader
+	written int64
+	read    int64
+}
+
+func (c *counter) Write(p []byte) (int, error) {
+	n, err := c.Writer.Write(p)
+	c.written += int64(n)
+	return n, err
+}
+
+func (c *counter) Read(p []byte) (int, error) {
+	n, err := c.Reader.Read(p)
+	c.read += int64(n)
+	return n, err
 }

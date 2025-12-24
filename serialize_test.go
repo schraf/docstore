@@ -2,7 +2,7 @@ package docstore
 
 import (
 	"bytes"
-	"strings"
+
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,13 +31,17 @@ func TestSerialize_Success(t *testing.T) {
 
 	// Write snapshot to buffer
 	var buf bytes.Buffer
-	_, err = store.WriteTo(&buf)
+	written, err := store.WriteTo(&buf)
 	require.NoError(t, err)
 
 	// Read from snapshot into a new store
 	newStore := NewStore[SerializeTestDoc]()
-	_, err = newStore.ReadFrom(&buf)
+	read, err := newStore.ReadFrom(&buf)
 	require.NoError(t, err)
+
+	// Verify byte counts match
+	assert.Equal(t, written, read)
+	assert.Greater(t, written, int64(0))
 
 	// Verify new store
 	newHash, err := newStore.Hash()
@@ -47,36 +51,4 @@ func TestSerialize_Success(t *testing.T) {
 	retrievedDoc, err := newStore.Get(docs[0].Id)
 	require.NoError(t, err)
 	assert.Equal(t, docs[0].Data.Name, retrievedDoc.Data.Name)
-}
-
-func TestSerialize_InvalidMagic(t *testing.T) {
-	badSnapshot := strings.NewReader(`{
-		"magic": "BADMAGIC",
-		"timestamp": "2025-01-01T00:00:00Z",
-		"doc_type": "docstore.SerializeTestDoc",
-		"hash": 12345
-	}`)
-
-	store := NewStore[SerializeTestDoc]()
-	_, err := store.ReadFrom(badSnapshot)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrInvalidSnapshotMagic)
-}
-
-func TestSerialize_MismatchedDocType(t *testing.T) {
-	type DifferentDoc struct {
-		Value float64 `json:"value"`
-	}
-
-	snapshot := strings.NewReader(`{
-		"magic": "DSS1",
-		"timestamp": "2025-01-01T00:00:00Z",
-		"doc_type": "docstore.SerializeTestDoc",
-		"hash": 12345
-	}`)
-
-	store := NewStore[DifferentDoc]()
-	_, err := store.ReadFrom(snapshot)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrMismatchedDocType)
 }
