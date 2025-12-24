@@ -10,6 +10,7 @@ func hashSorter[T DocData](left *Document[T], right *Document[T]) bool {
 	return left.Id.String() < right.Id.String()
 }
 
+// Hash returns a hash of the documents in the store.
 func (s *Store[T]) Hash() (int32, error) {
 	var documents []*Document[T]
 

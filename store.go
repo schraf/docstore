@@ -4,10 +4,12 @@ import (
 	"time"
 )
 
+// Store is a simple document store.
 type Store[T DocData] struct {
 	documents map[DocId]Document[T]
 }
 
+// NewStore creates a new store.
 func NewStore[T DocData]() *Store[T] {
 	return &Store[T]{
 		documents: make(map[DocId]Document[T]),

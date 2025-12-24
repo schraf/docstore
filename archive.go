@@ -10,11 +10,13 @@ import (
 	"time"
 )
 
+// ArchiveWriter is a writer for creating tar.gz archives.
 type ArchiveWriter struct {
 	archive *tar.Writer
 	closer  func() error
 }
 
+// NewArchiveWriter creates a new archive writer.
 func NewArchiveWriter(w io.Writer) *ArchiveWriter {
 	gzipWriter := gzip.NewWriter(w)
 	tarWriter := tar.NewWriter(gzipWriter)
@@ -27,10 +29,12 @@ func NewArchiveWriter(w io.Writer) *ArchiveWriter {
 	}
 }
 
+// Close closes the archive writer.
 func (a *ArchiveWriter) Close() error {
 	return a.closer()
 }
 
+// WriteToArchive writes a store to the archive.
 func WriteToArchive[T DocData](w *ArchiveWriter, filename string, store *Store[T]) error {
 	var buffer bytes.Buffer
 
@@ -62,11 +66,13 @@ func WriteToArchive[T DocData](w *ArchiveWriter, filename string, store *Store[T
 	return nil
 }
 
+// ArchiveReader is a reader for reading tar.gz archives.
 type ArchiveReader struct {
 	archive *tar.Reader
 	closer  func() error
 }
 
+// NewArchiveReader creates a new archive reader.
 func NewArchiveReader(r io.Reader) (*ArchiveReader, error) {
 	gzipReader, err := gzip.NewReader(r)
 	if err != nil {
@@ -81,10 +87,12 @@ func NewArchiveReader(r io.Reader) (*ArchiveReader, error) {
 	}, nil
 }
 
+// Close closes the archive reader.
 func (a *ArchiveReader) Close() error {
 	return a.closer()
 }
 
+// ReadFromArchive reads a store from the archive.
 func ReadFromArchive[T DocData](r *ArchiveReader, filename string) (*Store[T], error) {
 	for {
 		header, err := r.archive.Next()

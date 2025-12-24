@@ -5,12 +5,15 @@ import (
 	"time"
 )
 
+// DocId is a document identifier.
 type DocId string
 
+// NewDocId creates a new document identifier.
 func NewDocId(id string) DocId {
 	return DocId(id)
 }
 
+// GenerateDocId creates a new random document identifier.
 func GenerateDocId() DocId {
 	const charset = "abcdefghijklmnopqrstuvwxyz" +
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -24,6 +27,7 @@ func GenerateDocId() DocId {
 	return DocId(b)
 }
 
+// String returns the string representation of the document identifier.
 func (d DocId) String() string {
 	return string(d)
 }

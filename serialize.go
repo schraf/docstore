@@ -19,6 +19,7 @@ type header struct {
 	Hash      int32     `json:"hash"`
 }
 
+// WriteTo writes the store to the given writer.
 func (s *Store[T]) WriteTo(w io.Writer) (int64, error) {
 	cw := &counter{Writer: w}
 
@@ -55,6 +56,7 @@ func (s *Store[T]) WriteTo(w io.Writer) (int64, error) {
 	return cw.written, err
 }
 
+// ReadFrom reads the store from the given reader.
 func (s *Store[T]) ReadFrom(r io.Reader) (int64, error) {
 	cr := &counter{Reader: r}
 
