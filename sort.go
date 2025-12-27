@@ -2,7 +2,7 @@ package docstore
 
 import "sort"
 
-func sortDocuments[T DocData](docs []*Document[T], sortFunc QuerySort[T]) []*Document[T] {
+func sortDocuments[T DocData](docs []*Document[T], sortFunc func(*Document[T], *Document[T]) bool) []*Document[T] {
 	sorter := docSortHelper[T]{
 		docs:     docs,
 		lessFunc: sortFunc,

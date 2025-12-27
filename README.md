@@ -4,15 +4,13 @@ A simple in-memory document store written in Go.
 
 ## Description
 
-`docstore` is a lightweight, generic, in-memory document storage library. It allows you to store, retrieve, and query documents in a structured way. The library is designed to be simple to use and integrate into any Go project.
+`docstore` is a lightweight, generic, in-memory document storage library. It allows you to store and retrieve documents in a structured way. The library is designed to be simple to use and integrate into any Go project.
 
 ## Features
 
 - **Generic:** Can store any type of document data.
 - **In-Memory:** Fast and efficient for small to medium-sized datasets.
 - **CRUD Operations:** Supports Create, Read, Update, and Delete operations.
-- **Querying:** Simple and flexible querying capabilities.
-- **Sorting:** Sort query results based on document fields.
 - **Serialization:** Save and load the document store to and from a file.
 - **Archiving:** Utilities to bundle a store into a gzipped tarball.
 
@@ -74,14 +72,6 @@ func main() {
 	}
 
 	fmt.Printf("Retrieved document: %+v\n", retrievedDoc)
-
-	// Query for documents
-	results, err := store.Select(docstore.Query[MyDoc]{})
-	if err != nil {
-		log.Fatalf("Failed to select documents: %v", err)
-	}
-
-	fmt.Printf("Found %d documents\n", results.Total)
 }
 ```
 

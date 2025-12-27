@@ -51,12 +51,6 @@ func TestArchive_Roundtrip(t *testing.T) {
 	require.NotNil(t, readStore)
 
 	// 4. Verify the contents of the restored store
-	originalResult, err := store.Select(Query[TestDoc]{})
-	require.NoError(t, err)
-	readResult, err := readStore.Select(Query[TestDoc]{})
-	require.NoError(t, err)
-	assert.Equal(t, originalResult.Total, readResult.Total)
-
 	originalDoc1, err := store.Get(doc1.Id)
 	require.NoError(t, err)
 	retrievedDoc1, err := readStore.Get(doc1.Id)

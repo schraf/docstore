@@ -8,6 +8,8 @@ import (
 // DocId is a document identifier.
 type DocId string
 
+const EmptyDocId = DocId("")
+
 // NewDocId creates a new document identifier.
 func NewDocId(id string) DocId {
 	return DocId(id)
