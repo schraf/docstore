@@ -16,7 +16,6 @@ type header struct {
 	Magic     string    `json:"magic"`
 	Timestamp time.Time `json:"timestamp"`
 	DocType   string    `json:"doc_type"`
-	Hash      int32     `json:"hash"`
 }
 
 // WriteTo writes the store to the given writer.
@@ -24,21 +23,15 @@ func (s *Store[T]) WriteTo(w io.Writer) (int64, error) {
 	cw := &counter{Writer: w}
 
 	err := func() error {
-		hash, err := s.Hash()
-		if err != nil {
-			return fmt.Errorf("unable to hash documents for snapshot: %w", err)
-		}
-
 		typeName := reflect.TypeFor[T]().String()
 
 		encoder := json.NewEncoder(cw)
 		encoder.SetIndent("", "  ")
 
-		err = encoder.Encode(header{
+		err := encoder.Encode(header{
 			Magic:     magic,
 			Timestamp: time.Now().UTC(),
 			DocType:   typeName,
-			Hash:      hash,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to write header: %w", err)

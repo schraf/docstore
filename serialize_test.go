@@ -26,9 +26,6 @@ func TestSerialize_Success(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	originalHash, err := store.Hash()
-	require.NoError(t, err)
-
 	// Write snapshot to buffer
 	var buf bytes.Buffer
 	written, err := store.WriteTo(&buf)
@@ -44,10 +41,6 @@ func TestSerialize_Success(t *testing.T) {
 	assert.Greater(t, written, int64(0))
 
 	// Verify new store
-	newHash, err := newStore.Hash()
-	require.NoError(t, err)
-	assert.Equal(t, originalHash, newHash)
-
 	retrievedDoc, err := newStore.Get(docs[0].Id)
 	require.NoError(t, err)
 	assert.Equal(t, docs[0].Data.Name, retrievedDoc.Data.Name)
