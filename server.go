@@ -6,27 +6,23 @@ import (
 	"strings"
 )
 
-// Server is an HTTP server for a Store.
-type Server[T DocData] struct {
-	store *Store[T]
-}
+// Server is an HTTP server for a View.
+type Server[T Document] struct{}
 
-// NewServer creates a new server for a store.
-func NewServer[T DocData](store *Store[T]) *Server[T] {
-	return &Server[T]{
-		store: store,
-	}
+// NewServer creates a new server for a View.
+func NewServer[T Document]() *Server[T] {
+	return &Server[T]{}
 }
 
 // RegisterHandlers registers the store handlers on a ServeMux.
 // This uses the path-based routing available in Go 1.22+.
 // For example, if you provide "/api/docs", it will register:
-// - POST /api/docs
+// - POST /api/docs/{id}
 // - GET /api/docs/{id}
 // - DELETE /api/docs/{id}
 func (s *Server[T]) RegisterHandlers(prefix string, mux *http.ServeMux) {
 	prefix = strings.TrimSuffix(prefix, "/")
-	mux.Handle("POST "+prefix, s.PutHandler())
+	mux.Handle("POST "+prefix+"/{id}", s.PutHandler())
 	mux.Handle("GET "+prefix+"/{id}", s.GetHandler())
 	mux.Handle("DELETE "+prefix+"/{id}", s.DeleteHandler())
 }
@@ -36,17 +32,18 @@ func (s *Server[T]) RegisterHandlers(prefix string, mux *http.ServeMux) {
 // On success, it returns the document (with updated timestamps) and status 200.
 func (s *Server[T]) PutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var doc Document[T]
+		id := DocId(r.PathValue("id"))
+		if id == EmptyDocId {
+			id = GenerateDocId()
+		}
+
+		var doc T
 		if err := json.NewDecoder(r.Body).Decode(&doc); err != nil {
 			http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if doc.Id == EmptyDocId {
-			doc.Id = GenerateDocId()
-		}
-
-		if err := s.store.Put(doc); err != nil {
+		if err := Put(id, doc); err != nil {
 			http.Error(w, "failed to put document: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -65,10 +62,12 @@ func (s *Server[T]) GetHandler() http.HandlerFunc {
 			return
 		}
 
-		doc, err := s.store.Get(id)
+		doc, err := GetAs[T](id)
 		if err != nil {
 			if err == ErrDocumentNotFound {
 				http.NotFound(w, r)
+			} else if err == ErrDocumentTypeMismatch {
+				http.Error(w, "document type mismatch", http.StatusBadRequest)
 			} else {
 				http.Error(w, "failed to get document: "+err.Error(), http.StatusInternalServerError)
 			}
@@ -77,7 +76,7 @@ func (s *Server[T]) GetHandler() http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(doc)
+		json.NewEncoder(w).Encode(*doc)
 	}
 }
 
@@ -91,7 +90,7 @@ func (s *Server[T]) DeleteHandler() http.HandlerFunc {
 			return
 		}
 
-		err := s.store.Delete(id)
+		err := Delete(id)
 		if err != nil {
 			if err == ErrDocumentNotFound {
 				http.NotFound(w, r)

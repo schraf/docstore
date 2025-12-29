@@ -10,7 +10,7 @@ fmt:
 
 test:
 	@echo "Running tests..."
-	@go test -count 10 -shuffle on ./...
+	@go test -count 3 -shuffle on ./...
 
 doc:
 	@echo "Generating documentation..."

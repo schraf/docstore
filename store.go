@@ -1,54 +1,45 @@
 package docstore
 
-import (
-	"time"
+import "sync"
+
+var (
+	store     map[DocId]Document
+	storeLock sync.RWMutex
 )
 
-// Store is a simple document store.
-type Store[T DocData] struct {
-	documents map[DocId]Document[T]
+func init() {
+	Clear()
 }
 
-// NewStore creates a new store.
-func NewStore[T DocData]() *Store[T] {
-	return &Store[T]{
-		documents: make(map[DocId]Document[T]),
-	}
+func Clear() {
+	storeLock.Lock()
+	defer storeLock.Unlock()
+
+	store = make(map[DocId]Document)
 }
 
-// Clear all documents
-func (s *Store[T]) Clear() error {
-	s.documents = make(map[DocId]Document[T])
-	return nil
-}
-
-// Put adds or updates a document
-func (s *Store[T]) Put(doc Document[T]) error {
-	// Check if document already exists
-	if oldDoc, exists := s.documents[doc.Id]; exists {
-		// Preserve creation time, update modification time
-		doc.CreatedAt = oldDoc.CreatedAt
-		doc.UpdatedAt = time.Now()
-
-		// Update document
-		s.documents[doc.Id] = doc
-		return nil
+func Put(id DocId, doc Document) error {
+	if id == EmptyDocId {
+		return ErrEmptyDocumentId
 	}
 
-	// Set timestamps
-	now := time.Now()
-	doc.CreatedAt = now
-	doc.UpdatedAt = now
+	storeLock.Lock()
+	defer storeLock.Unlock()
 
-	// Store document
-	s.documents[doc.Id] = doc
-
+	store[id] = doc
 	return nil
 }
 
 // Get retrieves a document by Id
-func (s *Store[T]) Get(id DocId) (*Document[T], error) {
-	doc, exists := s.documents[id]
+func Get(id DocId) (*Document, error) {
+	if id == EmptyDocId {
+		return nil, ErrEmptyDocumentId
+	}
+
+	storeLock.RLock()
+	defer storeLock.RUnlock()
+
+	doc, exists := store[id]
 	if !exists {
 		return nil, ErrDocumentNotFound
 	}
@@ -56,16 +47,34 @@ func (s *Store[T]) Get(id DocId) (*Document[T], error) {
 	return &doc, nil
 }
 
+// GetAs retrieves a typed document by Id
+func GetAs[T Document](id DocId) (*T, error) {
+	doc, err := Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	typedDoc, ok := (*doc).(T)
+	if !ok {
+		return nil, ErrDocumentTypeMismatch
+	}
+
+	return &typedDoc, nil
+}
+
 // Delete removes a document
-func (s *Store[T]) Delete(id DocId) error {
+func Delete(id DocId) error {
+	storeLock.Lock()
+	defer storeLock.Unlock()
+
 	// Check if document exists
-	_, exists := s.documents[id]
+	_, exists := store[id]
 	if !exists {
 		return ErrDocumentNotFound
 	}
 
 	// Remove document
-	delete(s.documents, id)
+	delete(store, id)
 
 	return nil
 }

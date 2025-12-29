@@ -1,11 +1,9 @@
 package docstore
 
 import (
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
 	"io"
-	"reflect"
-	"time"
 )
 
 const (
@@ -13,92 +11,70 @@ const (
 )
 
 type header struct {
-	Magic     string    `json:"magic"`
-	Timestamp time.Time `json:"timestamp"`
-	DocType   string    `json:"doc_type"`
+	Magic string
+	Count int
 }
 
-// WriteTo writes the store to the given writer.
-func (s *Store[T]) WriteTo(w io.Writer) (int64, error) {
-	cw := &counter{Writer: w}
-
-	err := func() error {
-		typeName := reflect.TypeFor[T]().String()
-
-		encoder := json.NewEncoder(cw)
-		encoder.SetIndent("", "  ")
-
-		err := encoder.Encode(header{
-			Magic:     magic,
-			Timestamp: time.Now().UTC(),
-			DocType:   typeName,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to write header: %w", err)
-		}
-
-		// Write out each document
-		for _, doc := range s.documents {
-			if err := encoder.Encode(doc); err != nil {
-				return fmt.Errorf("failed to encode document %s: %w", doc.Id, err)
-			}
-		}
-		return nil
-	}()
-
-	return cw.written, err
+type document struct {
+	Id  DocId
+	Doc Document
 }
 
-// ReadFrom reads the store from the given reader.
-func (s *Store[T]) ReadFrom(r io.Reader) (int64, error) {
-	cr := &counter{Reader: r}
+func RegisterType(d Document) {
+	gob.Register(d)
+}
 
-	typeName := reflect.TypeFor[T]().String()
-	decoder := json.NewDecoder(cr)
+// WriteAll writes all of the documents to the given writer.
+func WriteAll(w io.Writer) error {
+	encoder := gob.NewEncoder(w)
+
+	storeLock.RLock()
+	defer storeLock.RUnlock()
+
+	err := encoder.Encode(header{
+		Magic: magic,
+		Count: len(store),
+	})
+	if err != nil {
+		return err
+	}
+
+	for id, doc := range store {
+		if err := encoder.Encode(document{
+			Id:  id,
+			Doc: doc,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ReadAll reads all of the documents from the given reader.
+func ReadAll(r io.Reader) error {
+	decoder := gob.NewDecoder(r)
 
 	// Read out the snapshot info
-	header := header{}
-	if err := decoder.Decode(&header); err != nil {
-		return cr.read, fmt.Errorf("failed to read header: %w", err)
+	var h header
+	if err := decoder.Decode(&h); err != nil {
+		return err
 	}
 
-	if header.Magic != magic {
-		return cr.read, fmt.Errorf("invalid file format")
-	}
-
-	if header.DocType != typeName {
-		return cr.read, fmt.Errorf("document type mismatch")
+	if h.Magic != magic || h.Count < 0 {
+		return fmt.Errorf("invalid file header")
 	}
 
 	// Read out each document
-	for decoder.More() {
-		var doc Document[T]
+	for i := 0; i < h.Count; i++ {
+		var doc document
 
 		if err := decoder.Decode(&doc); err != nil {
-			return cr.read, fmt.Errorf("failed to decode document: %w", err)
+			return err
 		}
 
-		s.documents[doc.Id] = doc
+		Put(doc.Id, doc.Doc)
 	}
 
-	return cr.read, nil
-}
-
-type counter struct {
-	io.Writer
-	io.Reader
-	written int64
-	read    int64
-}
-
-func (c *counter) Write(p []byte) (int, error) {
-	n, err := c.Writer.Write(p)
-	c.written += int64(n)
-	return n, err
-}
-
-func (c *counter) Read(p []byte) (int, error) {
-	n, err := c.Reader.Read(p)
-	c.read += int64(n)
-	return n, err
+	return nil
 }

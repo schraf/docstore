@@ -1,18 +1,20 @@
 package docstore
 
-import (
-	"math/rand"
-	"time"
-)
+import "math/rand"
+
+const EmptyDocId = DocId("")
 
 // DocId is a document identifier.
 type DocId string
 
-const EmptyDocId = DocId("")
-
 // NewDocId creates a new document identifier.
 func NewDocId(id string) DocId {
 	return DocId(id)
+}
+
+// String returns the string representation of the document identifier.
+func (d DocId) String() string {
+	return string(d)
 }
 
 // GenerateDocId creates a new random document identifier.
@@ -29,20 +31,4 @@ func GenerateDocId() DocId {
 	return DocId(b)
 }
 
-// String returns the string representation of the document identifier.
-func (d DocId) String() string {
-	return string(d)
-}
-
-// DocData used to restrict document data to concrete types
-type DocData interface {
-	any
-}
-
-// Document represents a stored document with metadata
-type Document[T DocData] struct {
-	Id        DocId     `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Data      T         `json:"data"`
-}
+type Document any

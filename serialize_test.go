@@ -2,46 +2,34 @@ package docstore
 
 import (
 	"bytes"
-
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type SerializeTestDoc struct {
-	Name string `json:"name"`
-	Age  int    `json:"age"`
-}
+func TestSerialize(t *testing.T) {
+	RegisterType(TestDoc{})
 
-func TestSerialize_Success(t *testing.T) {
-	// Setup original store
-	store := NewStore[SerializeTestDoc]()
-	docs := []Document[SerializeTestDoc]{
-		{Id: GenerateDocId(), Data: SerializeTestDoc{Name: "John Doe", Age: 30}},
-		{Id: GenerateDocId(), Data: SerializeTestDoc{Name: "Jane Smith", Age: 25}},
-	}
-	for _, doc := range docs {
-		err := store.Put(doc)
-		require.NoError(t, err)
-	}
+	Clear()
 
-	// Write snapshot to buffer
-	var buf bytes.Buffer
-	written, err := store.WriteTo(&buf)
+	jimId, jim := AddTestDoc(t, "jim", 22)
+	joeId, joe := AddTestDoc(t, "joe", 32)
+	bobId, bob := AddTestDoc(t, "bob", 42)
+
+	var buffer bytes.Buffer
+
+	err := WriteAll(&buffer)
 	require.NoError(t, err)
 
-	// Read from snapshot into a new store
-	newStore := NewStore[SerializeTestDoc]()
-	read, err := newStore.ReadFrom(&buf)
+	Clear()
+	AssertNoDoc(t, jimId)
+	AssertNoDoc(t, joeId)
+	AssertNoDoc(t, bobId)
+
+	err = ReadAll(&buffer)
 	require.NoError(t, err)
 
-	// Verify byte counts match
-	assert.Equal(t, written, read)
-	assert.Greater(t, written, int64(0))
-
-	// Verify new store
-	retrievedDoc, err := newStore.Get(docs[0].Id)
-	require.NoError(t, err)
-	assert.Equal(t, docs[0].Data.Name, retrievedDoc.Data.Name)
+	AssertDoc(t, jimId, jim)
+	AssertDoc(t, joeId, joe)
+	AssertDoc(t, bobId, bob)
 }

@@ -1,35 +1,30 @@
-# docstore
+# Docstore
 
-A simple in-memory document store written in Go.
+`docstore` is a simple, in-memory, key-value document store in Go. It is thread-safe and supports persistence through GOB serialization.
 
-## Description
-
-`docstore` is a lightweight, generic, in-memory document storage library. It allows you to store and retrieve documents in a structured way. The library is designed to be simple to use and integrate into any Go project.
+Documents can be of any type. The store is a package-level singleton, providing straightforward functions like `Put`, `Get`, `GetAs`, and `Delete`.
 
 ## Features
 
-- **Generic:** Can store any type of document data.
-- **In-Memory:** Fast and efficient for small to medium-sized datasets.
-- **CRUD Operations:** Supports Create, Read, Update, and Delete operations.
-- **Serialization:** Save and load the document store to and from a file.
-- **Archiving:** Utilities to bundle a store into a gzipped tarball.
+*   In-memory key-value store.
+*   Thread-safe operations.
+*   Support for any Go type as a document.
+*   Generic-aware `GetAs[T]` for type-safe retrieval.
+*   Manual persistence to disk via GOB serialization.
+*   GZIP compression for saved stores.
+*   A generic HTTP server for exposing a store of a specific type over a REST-like API.
 
-## Components
+## Getting Started
 
-- **`Store`:** The main component that manages the documents.
-- **`Document`:** A wrapper around your data that includes metadata like ID, and timestamps.
-- **`ArchiveWriter`:** Used to serialize multiple Store components into a archive file.
-- **`ArchiveReader`:** Used to deserialize Stores from an archive file that was written using `ArchiveWriter`.
-
-## Installation
+To use `docstore` in your Go project, you can install it using `go get`:
 
 ```bash
 go get github.com/schraf/docstore
 ```
 
-## Usage
+## Usage Example
 
-Here is a simple example of how to use `docstore`:
+Because `docstore` uses GOB for serialization, you must register the types of the documents you want to store.
 
 ```go
 package main
@@ -37,62 +32,158 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/schraf/docstore"
 )
 
-// Define your document data structure
-type MyDoc struct {
-	Name string `json:"name"`
-	Age  int    `json:"age"`
+// Define your document structure.
+type MyNote struct {
+	Title string
+	Body  string
 }
 
 func main() {
-	// Create a new store
-	store := docstore.NewStore[MyDoc]()
+	// Register your document type for serialization.
+	docstore.RegisterType(MyNote{})
 
-	// Create a new document
-	doc := docstore.Document[MyDoc]{
-		Id: docstore.GenerateDocId(),
-		Data: MyDoc{
-			Name: "John Doe",
-			Age:  30,
-		},
+	// Create a new document ID.
+	id := docstore.GenerateDocId()
+	note := MyNote{
+		Title: "Hello",
+		Body:  "This is my first note in the docstore!",
 	}
 
-	// Add the document to the store
-	if err := store.Put(doc); err != nil {
+	// Add the document to the store.
+	if err := docstore.Put(id, note); err != nil {
 		log.Fatalf("Failed to put document: %v", err)
 	}
+	fmt.Println("Successfully stored a new note.")
 
-	// Retrieve the document
-	retrievedDoc, err := store.Get(doc.Id)
+	// Retrieve the document with type assertion.
+	retrievedNote, err := docstore.GetAs[MyNote](id)
 	if err != nil {
 		log.Fatalf("Failed to get document: %v", err)
 	}
+	fmt.Printf("Retrieved note: %+v\n", *retrievedNote)
 
-	fmt.Printf("Retrieved document: %+v\n", retrievedDoc)
+	// --- Persistence ---
+
+	// Create a temporary file to save the store.
+	file, err := os.CreateTemp("", "docstore-*.gz")
+	if err != nil {
+		log.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+
+	// Save the entire store to the file (compressed).
+	if err := docstore.WriteAllToFile(file.Name()); err != nil {
+		log.Fatalf("Failed to save store: %v", err)
+	}
+	fmt.Printf("Store saved to %s\n", file.Name())
+
+	// Clear the in-memory store to simulate a restart.
+	docstore.Clear()
+	fmt.Println("In-memory store cleared.")
+
+	// Load the store back from the file.
+	if err := docstore.ReadAllFromFile(file.Name()); err != nil {
+		log.Fatalf("Failed to load store: %v", err)
+	}
+	fmt.Println("Store loaded from file.")
+
+	// Verify the document was restored.
+	reloadedNote, err := docstore.GetAs[MyNote](id)
+	if err != nil {
+		log.Fatalf("Failed to get document after reload: %v", err)
+	}
+	fmt.Printf("Reloaded note: %+v\n", *reloadedNote)
 }
+```
+
+### HTTP Server Example
+
+The `Server` is generic and designed to serve a store for a single, specific document type.
+
+```go
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/schraf/docstore"
+)
+
+type UserProfile struct {
+	Name  string
+	Email string
+}
+
+func main() {
+	// Register the type for both serialization and the server.
+	docstore.RegisterType(UserProfile{})
+
+	// Create a server for the UserProfile type.
+	server := docstore.NewServer[UserProfile]()
+
+	// Register the HTTP handlers on a new mux.
+	mux := http.NewServeMux()
+	server.RegisterHandlers("/users", mux)
+
+	log.Println("Server listening on :8080")
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+You can then interact with it using `curl` (requires Go 1.22+ for path-based routing):
+
+```bash
+# Create or update a user profile
+curl -X POST -d '{"name": "John Doe", "email": "john.doe@example.com"}' http://localhost:8080/users/john
+
+# Retrieve the user profile
+curl http://localhost:8080/users/john
+
+# Delete the user profile
+curl -X DELETE http://localhost:8080/users/john
 ```
 
 ## Development
 
-This project uses a `Makefile` for common development tasks:
+This project uses a `Makefile` to automate common development tasks.
 
--   `make test`: Runs all unit tests.
--   `make vet`: Vets the code for suspicious constructs.
--   `make fmt`: Formats the code according to Go standards.
--   `make all`: Runs `vet` and `test`.
--   `make deps`: Installs dependencies.
--   `make help`: Shows all available commands.
+### Installing Dependencies
 
-To run tests, simply execute:
+To install the dependencies, run:
+
+```bash
+make deps
+```
+
+### Running Tests
+
+To run the tests for this project, use the `test` target in the Makefile:
 
 ```bash
 make test
 ```
 
-## License
+This will run all tests, shuffle their execution order, and run each test 3 times to help detect flaky tests.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Formatting Code
 
+To format the Go source code, run:
+
+```bash
+make fmt
+```
+
+### Vetting Code
+
+To run `go vet` on the codebase, use:
+```bash
+make vet
+```
