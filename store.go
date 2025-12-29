@@ -11,6 +11,7 @@ func init() {
 	Clear()
 }
 
+// Clear removes all documents from the store.
 func Clear() {
 	storeLock.Lock()
 	defer storeLock.Unlock()
@@ -18,6 +19,7 @@ func Clear() {
 	store = make(map[DocId]Document)
 }
 
+// Put adds a document to the store.
 func Put(id DocId, doc Document) error {
 	if id == EmptyDocId {
 		return ErrEmptyDocumentId

@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// WriteAllToFile writes the entire docstore to a single file.
 func WriteAllToFile(filename string) (err error) {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -23,6 +24,8 @@ func WriteAllToFile(filename string) (err error) {
 	return
 }
 
+// ReadAllFromFile reads the entire docstore from a single file, replacing any
+// contents that were in the docstore.
 func ReadAllFromFile(filename string) (err error) {
 	file, err := os.Open(filename)
 	if err != nil {

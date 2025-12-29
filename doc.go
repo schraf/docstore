@@ -2,6 +2,7 @@ package docstore
 
 import "math/rand"
 
+// EmptyDocId is an empty document identifier.
 const EmptyDocId = DocId("")
 
 // DocId is a document identifier.
@@ -31,4 +32,5 @@ func GenerateDocId() DocId {
 	return DocId(b)
 }
 
+// Document is the document to be stored.
 type Document any

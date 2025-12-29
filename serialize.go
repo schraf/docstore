@@ -20,6 +20,9 @@ type document struct {
 	Doc Document
 }
 
+// RegisterType registers the given document type with the gob package.
+// This is necessary so that the gob package knows how to encode and decode
+// the document type.
 func RegisterType(d Document) {
 	gob.Register(d)
 }
