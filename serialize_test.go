@@ -8,7 +8,7 @@ import (
 )
 
 func TestSerialize(t *testing.T) {
-	RegisterType(TestDoc{})
+	RegisterType[TestDoc]()
 
 	Clear()
 

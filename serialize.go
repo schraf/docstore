@@ -23,8 +23,9 @@ type document struct {
 // RegisterType registers the given document type with the gob package.
 // This is necessary so that the gob package knows how to encode and decode
 // the document type.
-func RegisterType(d Document) {
-	gob.Register(d)
+func RegisterType[T Document]() {
+	var doc T
+	gob.Register(doc)
 }
 
 // WriteAll writes all of the documents to the given writer.

@@ -45,7 +45,7 @@ type MyNote struct {
 
 func main() {
 	// Register your document type for serialization.
-	docstore.RegisterType(MyNote{})
+	docstore.RegisterType[MyNote]()
 
 	// Create a new document ID.
 	id := docstore.GenerateDocId()
@@ -122,7 +122,7 @@ type UserProfile struct {
 
 func main() {
 	// Register the type for both serialization and the server.
-	docstore.RegisterType(UserProfile{})
+	docstore.RegisterType[UserProfile]()
 
 	// Register the HTTP handlers on a new mux.
 	mux := http.NewServeMux()

@@ -7,7 +7,7 @@ import (
 )
 
 func TestArchive(t *testing.T) {
-	RegisterType(TestDoc{})
+	RegisterType[TestDoc]()
 
 	Clear()
 
