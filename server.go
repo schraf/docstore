@@ -15,13 +15,14 @@ import (
 func RegisterHandlers[T Document](prefix string, mux *http.ServeMux) {
 	prefix = strings.TrimSuffix(prefix, "/")
 	mux.Handle("POST "+prefix+"/{id}", PutHandler[T]())
+	mux.Handle("POST "+prefix+"/bulk", BulkPutHandler[T]())
 	mux.Handle("GET "+prefix+"/{id}", GetHandler[T]())
 	mux.Handle("DELETE "+prefix+"/{id}", DeleteHandler[T]())
 }
 
 // PutHandler returns an http.HandlerFunc for adding or updating a document.
 // It expects a POST request with a JSON body representing the full document.
-// On success, it returns the document (with updated timestamps) and status 200.
+// On success, it returns status 204
 func PutHandler[T Document]() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := DocId(r.PathValue("id"))
@@ -38,6 +39,33 @@ func PutHandler[T Document]() http.HandlerFunc {
 		if err := Put(id, doc); err != nil {
 			http.Error(w, "failed to put document: "+err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// BulkPutHandler returns an http.HandlerFunc for adding or updating multiple
+// documents. It expects a POST request with a JSON body representing each full document.
+// The JSON body should be an object where the properies are the document id and the values
+// are the full document bodies.
+// On success, it returns status 204.
+func BulkPutHandler[T Document]() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var docs map[string]T
+
+		if err := json.NewDecoder(r.Body).Decode(&docs); err != nil {
+			http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		for key, doc := range docs {
+			id := NewDocId(key)
+
+			if err := Put(id, doc); err != nil {
+				http.Error(w, "failed to put document: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		w.WriteHeader(http.StatusNoContent)
