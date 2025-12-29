@@ -13,8 +13,7 @@ func TestServer(t *testing.T) {
 
 	// setup the test server
 	mux := http.NewServeMux()
-	docserver := NewServer[TestDoc]()
-	docserver.RegisterHandlers("/testdoc", mux)
+	RegisterHandlers[TestDoc]("/testdoc", mux)
 
 	// add a document
 	jimId, jim, request := RequireDocPutRequest(t, "jim", 22)

@@ -124,12 +124,9 @@ func main() {
 	// Register the type for both serialization and the server.
 	docstore.RegisterType(UserProfile{})
 
-	// Create a server for the UserProfile type.
-	server := docstore.NewServer[UserProfile]()
-
 	// Register the HTTP handlers on a new mux.
 	mux := http.NewServeMux()
-	server.RegisterHandlers("/users", mux)
+	RegisterHandlers[UserProfile]("/users", mux)
 
 	log.Println("Server listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {

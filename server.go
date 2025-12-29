@@ -6,31 +6,23 @@ import (
 	"strings"
 )
 
-// Server is an HTTP server for a View.
-type Server[T Document] struct{}
-
-// NewServer creates a new server for a View.
-func NewServer[T Document]() *Server[T] {
-	return &Server[T]{}
-}
-
 // RegisterHandlers registers the store handlers on a ServeMux.
 // This uses the path-based routing available in Go 1.22+.
 // For example, if you provide "/api/docs", it will register:
 // - POST /api/docs/{id}
 // - GET /api/docs/{id}
 // - DELETE /api/docs/{id}
-func (s *Server[T]) RegisterHandlers(prefix string, mux *http.ServeMux) {
+func RegisterHandlers[T Document](prefix string, mux *http.ServeMux) {
 	prefix = strings.TrimSuffix(prefix, "/")
-	mux.Handle("POST "+prefix+"/{id}", s.PutHandler())
-	mux.Handle("GET "+prefix+"/{id}", s.GetHandler())
-	mux.Handle("DELETE "+prefix+"/{id}", s.DeleteHandler())
+	mux.Handle("POST "+prefix+"/{id}", PutHandler[T]())
+	mux.Handle("GET "+prefix+"/{id}", GetHandler[T]())
+	mux.Handle("DELETE "+prefix+"/{id}", DeleteHandler[T]())
 }
 
 // PutHandler returns an http.HandlerFunc for adding or updating a document.
 // It expects a POST request with a JSON body representing the full document.
 // On success, it returns the document (with updated timestamps) and status 200.
-func (s *Server[T]) PutHandler() http.HandlerFunc {
+func PutHandler[T Document]() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := DocId(r.PathValue("id"))
 		if id == EmptyDocId {
@@ -54,7 +46,7 @@ func (s *Server[T]) PutHandler() http.HandlerFunc {
 
 // GetHandler returns an http.HandlerFunc for retrieving a document.
 // It expects the document ID to be in the URL path (e.g., /docs/my-doc-id).
-func (s *Server[T]) GetHandler() http.HandlerFunc {
+func GetHandler[T Document]() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := DocId(r.PathValue("id"))
 		if id == EmptyDocId {
@@ -82,7 +74,7 @@ func (s *Server[T]) GetHandler() http.HandlerFunc {
 
 // DeleteHandler returns an http.HandlerFunc for deleting a document.
 // It expects the document ID to be in the URL path (e.g., /docs/my-doc-id).
-func (s *Server[T]) DeleteHandler() http.HandlerFunc {
+func DeleteHandler[T Document]() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := DocId(r.PathValue("id"))
 		if id == EmptyDocId {
