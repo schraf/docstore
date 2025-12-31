@@ -1,6 +1,7 @@
 package docstore
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -37,23 +38,49 @@ func TestServer(t *testing.T) {
 	AssertResponseCode(t, mux, request, http.StatusNotFound)
 }
 
-func TestServer_BulkPut(t *testing.T) {
+func TestServer_List(t *testing.T) {
 	Clear()
 
-	jim := TestDoc{Name: "jim", Age: 22}
-	joe := TestDoc{Name: "joe", Age: 32}
-	bob := TestDoc{Name: "bob", Age: 42}
+	jimId, _ := AddTestDoc(t, "jim", 22)
+	joeId, _ := AddTestDoc(t, "joe", 32)
+	bobId, _ := AddTestDoc(t, "bob", 42)
 
 	// setup the test server
 	mux := http.NewServeMux()
 	RegisterHandlers[TestDoc]("/testdoc", mux)
 
-	// create the bulk request
-	ids, request := RequireDocBulkPutRequest(t, jim, joe, bob)
-	AssertResponseCode(t, mux, request, http.StatusNoContent)
-	require.Equal(t, 3, len(ids))
+	request := httptest.NewRequest(http.MethodGet, "/testdoc", nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	assert.Equal(t, http.StatusOK, response.Code)
 
-	AssertDoc(t, ids[0], jim)
-	AssertDoc(t, ids[1], joe)
-	AssertDoc(t, ids[2], bob)
+	var docs []struct {
+		Id   string  `json:"id"`
+		Data TestDoc `json:"data"`
+	}
+
+	err := json.Unmarshal(response.Body.Bytes(), &docs)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(docs))
+
+	jimCount := 0
+	joeCount := 0
+	bobCount := 0
+
+	for _, doc := range docs {
+		switch doc.Id {
+		case jimId.String():
+			jimCount++
+		case joeId.String():
+			joeCount++
+		case bobId.String():
+			bobCount++
+		default:
+			t.Fatalf("unexpected doc '%s'", doc.Id)
+		}
+	}
+
+	assert.Equal(t, 1, jimCount)
+	assert.Equal(t, 1, joeCount)
+	assert.Equal(t, 1, bobCount)
 }

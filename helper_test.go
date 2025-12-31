@@ -69,27 +69,6 @@ func RequireDocPutRequest(t *testing.T, name string, age int) (DocId, TestDoc, *
 	return id, doc, request
 }
 
-func RequireDocBulkPutRequest(t *testing.T, docs ...TestDoc) ([]DocId, *http.Request) {
-	t.Helper()
-
-	bulk := map[string]TestDoc{}
-	docIds := []DocId{}
-
-	for _, doc := range docs {
-		id := GenerateDocId()
-		bulk[id.String()] = doc
-		docIds = append(docIds, id)
-	}
-
-	encodedDocs, err := json.Marshal(bulk)
-	require.NoError(t, err)
-
-	request := httptest.NewRequest(http.MethodPost, "/testdoc/bulk", bytes.NewBuffer(encodedDocs))
-	request.Header.Set("Content-Type", "application/json")
-
-	return docIds, request
-}
-
 func AssertResponseCode(t *testing.T, mux *http.ServeMux, request *http.Request, code int) {
 	t.Helper()
 
