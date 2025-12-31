@@ -3,6 +3,7 @@ package docstore
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +29,24 @@ func TestStore(t *testing.T) {
 	AssertDoc(t, jimId, jim)
 	AssertDoc(t, joeId, joe)
 	AssertDoc(t, bobId, bob)
+
+	err = Put(GenerateDocId(), 47)
+
+	count := 0
+
+	for _, _ = range AllDocuments() {
+		count++
+	}
+
+	assert.Equal(t, 4, count)
+
+	count = 0
+
+	for _, _ = range AllDocumentsOf[TestDoc]() {
+		count++
+	}
+
+	assert.Equal(t, 3, count)
 
 	Clear()
 

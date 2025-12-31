@@ -1,6 +1,9 @@
 package docstore
 
-import "sync"
+import (
+	"iter"
+	"sync"
+)
 
 var (
 	store     map[DocId]Document
@@ -79,4 +82,33 @@ func Delete(id DocId) error {
 	delete(store, id)
 
 	return nil
+}
+
+// AllDocuments returns a iterator that goes over all stored documents
+func AllDocuments() iter.Seq2[DocId, Document] {
+	return func(yield func(DocId, Document) bool) {
+		storeLock.RLock()
+		defer storeLock.RUnlock()
+
+		for docId, doc := range store {
+			if !yield(docId, doc) {
+				return
+			}
+		}
+	}
+}
+
+// AllDocumentsOf returns a iterator that goes over all stored documents of a given type
+func AllDocumentsOf[T Document]() iter.Seq2[DocId, T] {
+	return func(yield func(DocId, T) bool) {
+		storeLock.RLock()
+		defer storeLock.RUnlock()
+
+		for docId, doc := range store {
+			typedDoc, ok := doc.(T)
+			if ok && !yield(docId, typedDoc) {
+				return
+			}
+		}
+	}
 }
