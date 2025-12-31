@@ -84,6 +84,30 @@ func Delete(id DocId) error {
 	return nil
 }
 
+// DeleteAllOf removes all documents of the given type
+// returns the number of documents deleted
+func DeleteAllOf[T Document]() int {
+	storeLock.Lock()
+	defer storeLock.Unlock()
+
+	var marked []DocId
+
+	for docId, doc := range store {
+		if _, ok := doc.(T); ok {
+			marked = append(marked, docId)
+		}
+	}
+
+	count := 0
+
+	for _, docId := range marked {
+		delete(store, docId)
+		count++
+	}
+
+	return count
+}
+
 // AllDocuments returns a iterator that goes over all stored documents
 func AllDocuments() iter.Seq2[DocId, Document] {
 	return func(yield func(DocId, Document) bool) {

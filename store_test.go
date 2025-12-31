@@ -48,7 +48,16 @@ func TestStore(t *testing.T) {
 
 	assert.Equal(t, 3, count)
 
-	Clear()
+	deleted := DeleteAllOf[TestDoc]()
+	assert.Equal(t, 3, deleted)
+
+	count = 0
+
+	for _, _ = range AllDocuments() {
+		count++
+	}
+
+	assert.Equal(t, 1, count)
 
 	AssertNoDoc(t, jimId)
 	AssertNoDoc(t, joeId)
